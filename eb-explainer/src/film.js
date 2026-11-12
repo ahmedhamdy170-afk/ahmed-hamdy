@@ -12,8 +12,8 @@
 
   const F = {
     '16x9': { W: 1920, H: 1080, fs: 1.15, labelY: 132, headY: 232, gy: 580, capY: 1000, s4: 205, L: 1380, FWW: 1500, FHH: 600, filmW: 860, cols: 4, cardW: 300, gap: 30, safe: 70 },
-    '1x1': { W: 1080, H: 1080, fs: 1.0, labelY: 96, headY: 178, gy: 610, capY: 990, s4: 235, L: 860, FWW: 940, FHH: 600, filmW: 760, cols: 2, cardW: 296, gap: 36, safe: 50 },
-    '9x16': { W: 1080, H: 1920, fs: 1.4, labelY: 300, headY: 440, gy: 1010, capY: 1640, s4: 235, L: 860, FWW: 940, FHH: 940, filmW: 900, cols: 2, cardW: 390, gap: 40, safe: 60 },
+    '1x1': { W: 1080, H: 1080, fs: 1.0, labelY: 96, headY: 178, gy: 610, capY: 990, s4: 235, vfY: 645, vfH: 470, L: 860, FWW: 940, FHH: 600, filmW: 760, cols: 2, cardW: 296, gap: 36, safe: 50 },
+    '9x16': { W: 1080, H: 1920, fs: 1.4, labelY: 300, headY: 440, gy: 1010, capY: 1640, s4: 235, vfY: 1110, vfH: 760, L: 860, FWW: 940, FHH: 940, filmW: 900, cols: 2, cardW: 390, gap: 40, safe: 60 },
   }[FMT];
   const { W, H, fs, gy, L } = F;
   const cx = W / 2, lineY = gy - 30, x0 = cx - L / 2, x1 = cx + L / 2;
@@ -24,6 +24,8 @@
   const ctx = cv.getContext('2d');
   const buf = document.createElement('canvas'); buf.width = W; buf.height = H;
   const bctx = buf.getContext('2d');
+  const pbuf = document.createElement('canvas'); pbuf.width = W; pbuf.height = H;
+  const pctx = pbuf.getContext('2d');
 
   // ---------- helpers ----------
   const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -125,7 +127,6 @@
   const moments = TL.moments.map((m) => ({ ...m, tHappen: whenP(Math.min(m.f, 0.999), walkP), tCapture: whenP(Math.min(m.f, 0.999), camP) }));
 
   // Bracket track: the one object that lives through the whole film.
-  const c1 = cardPos(0);
   const tierRect = (k) => ({ x: x0 + L * (k.f0 + k.f1) / 2, y: lineY, w: L * (k.f1 - k.f0) + 34, h: 124 });
   const BK = [
     { t: 0, d: 0, x: cx, y: gy, w: F.FWW, h: F.FHH },
@@ -134,15 +135,14 @@
     { t: 2.5, d: 0.6, x: cx, y: gy, w: 210, h: 140 },
     { t: 5.0, d: 1.2, x: x0, y: camY, w: 64, h: 44 },
     { t: 12.3, d: 0, x: x1, y: camY, w: 64, h: 44 },
-    { t: 15.0, d: 1.4, x: cx, y: filmCy, w: filmW + 30, h: filmH + 30 },
-    { t: 17.5, d: 1.0, x: c1.x, y: c1.y, w: cardW + 22, h: cardH + 22 },
-    { t: 20.0, d: 1.0, x: cx, y: gridCy, w: gridW + 56, h: gridH + 56 },
+    { t: 13.0, d: 1.2, x: cx, y: F.vfY || gy, w: F.FWW, h: F.vfH || F.FHH },
+    { t: 20.1, d: 1.0, x: cx, y: gridCy, w: gridW + 56, h: gridH + 56 },
     { t: 22.5, d: 1.0, x: nodeX(0), y: lineY, w: 72, h: 72 },
     { t: 25.1, d: 0.7, x: nodeX(1), y: lineY, w: 72, h: 72 },
     { t: 27.6, d: 0.7, x: nodeX(2), y: lineY, w: 72, h: 72 },
     { t: 30.1, d: 0.7, x: nodeX(3), y: lineY, w: 72, h: 72 },
     ...TL.tiers.map((k, i) => ({ t: k.t, d: i ? 0.9 : 1.1, ...tierRect(k) })),
-    { t: 40.0, d: 1.4, x: cx, y: gy, w: F.FWW, h: F.FHH },
+    { t: 40.0, d: 1.4, x: cx, y: F.vfY || gy, w: F.FWW, h: F.vfH || F.FHH },
   ];
   function bracketAt(t) {
     let cur = { ...BK[0] };
@@ -151,7 +151,7 @@
       const e = k.d ? ease(seg(t, k.t, k.t + k.d)) : 1;
       cur = { x: mix(cur.x, k.x, e), y: mix(cur.y, k.y, e), w: mix(cur.w, k.w, e), h: mix(cur.h, k.h, e) };
     }
-    if (t >= 7.5 && t < 15) cur.x = x0 + L * camP(t);
+    if (t >= 7.5 && t < 13.0) cur.x = x0 + L * camP(t);
     return cur;
   }
 
@@ -160,10 +160,54 @@
     return `00:00:${p(Math.floor(t))}:${p(Math.floor((t % 1) * 25))}`;
   };
 
+  // ---------- photo layer ----------
+  function shotState(sh, t) {
+    const k = sh.keys; let i = 0; while (i + 1 < k.length && k[i + 1][0] <= t) i++;
+    const a = k[i], b = k[Math.min(i + 1, k.length - 1)];
+    const e = b === a ? 1 : ease(seg(t, a[0], b[0]));
+    return { z: mix(a[1], b[1], e), dim: mix(a[2], b[2], e), sat: mix(a[3], b[3], e), blur: mix(a[4], b[4], e) };
+  }
+  function paintShot(g, sh, t) {
+    const img = IMG[sh.img], st = shotState(sh, t);
+    const s0 = Math.max(W / img.width, H / img.height) * st.z, dw = img.width * s0, dh = img.height * s0;
+    const x = clamp(cx - sh.fx * dw, W - dw, 0), y = clamp(gy - sh.fy * dh, H - dh, 0);
+    g.save(); g.globalAlpha = 1; g.fillStyle = C.navy; g.fillRect(0, 0, W, H);
+    g.filter = `saturate(${st.sat.toFixed(3)})` + (st.blur > 0.05 ? ` blur(${st.blur.toFixed(2)}px)` : '');
+    g.drawImage(img, x, y, dw, dh); g.filter = 'none';
+    g.fillStyle = C.navy; g.globalAlpha = st.dim; g.fillRect(0, 0, W, H); g.restore();
+    return st.dim;
+  }
+  // Paints the photo bed and returns the navy cover it leaves, so text bands can top it up.
+  function photoLayer(g, t) {
+    const S = TL.shots; let i = 0; while (i + 1 < S.length && S[i + 1].t0 <= t) i++;
+    const cur = S[i], k = cur.x ? seg(t, cur.t0, cur.t0 + cur.x) : 1;
+    let dim = paintShot(g, cur, t);
+    if (k < 1 && i > 0) {
+      const dPrev = paintShot(pctx, S[i - 1], t);
+      g.save(); g.globalAlpha = 1 - k; g.drawImage(pbuf, 0, 0); g.restore();
+      dim = mix(dPrev, dim, k);
+    }
+    return dim;
+  }
+  // Navy bands behind text so every line keeps at least 0.72 navy cover (about 5:1 or better).
+  function band(g, y0, y1, dim, feather = 110) {
+    const a = Math.max(0, (0.72 - dim) / (1 - dim)); if (a <= 0.01) return;
+    const gr = g.createLinearGradient(0, y0 - feather, 0, y1 + feather);
+    const f0 = feather / (y1 - y0 + 2 * feather), f1 = 1 - f0;
+    gr.addColorStop(0, 'rgba(23,37,86,0)'); gr.addColorStop(f0, `rgba(23,37,86,${a})`);
+    gr.addColorStop(f1, `rgba(23,37,86,${a})`); gr.addColorStop(1, 'rgba(23,37,86,0)');
+    g.save(); g.globalAlpha = 1; g.fillStyle = gr; g.fillRect(0, y0 - feather, W, y1 - y0 + 2 * feather); g.restore();
+  }
+
   // ---------- draw one frame ----------
   function draw(g, t) {
     g.globalAlpha = 1;
-    g.fillStyle = C.navy; g.fillRect(0, 0, W, H);
+    const dim = photoLayer(g, t);
+    if (t < 40.2) band(g, 0, F.headY + 120 * fs, dim, 90);
+    if (t >= 15 && t < 20.4) band(g, F.capY - 200 * fs, H, dim, 150);
+    else if (t >= 40) band(g, F.capY - 400 * fs, H, dim, 170);
+    else band(g, F.capY - 60 * fs, H, dim, 90);
+    if (t < 5) band(g, gy - F.FHH * 0.36, gy + F.FHH * 0.36, dim, 80);
 
     // brand mark, quiet, top-left
     if (IMG.mark) { const mw = 62 * fs; g.save(); g.globalAlpha = 0.92; g.drawImage(IMG.mark, F.safe, F.safe * 0.75, mw, mw * IMG.mark.height / IMG.mark.width); g.restore(); }
@@ -172,7 +216,7 @@
 
     // --- day line (S2), steps line (S3), coverage line (S4) ---
     const lineIn = t < 15.9 ? ease(seg(t, 6.0, 7.3)) : ease(seg(t, 22.9, 23.7));
-    const lineA = t < 15.9 ? 1 - seg(t, 15.0, 15.7) : 1;
+    const lineA = t < 15.9 ? 1 - seg(t, 12.9, 13.3) : 1;
     const collapse = ease(seg(t, 40.0, 41.0));
     if (lineIn > 0 && lineA > 0 && collapse < 1) {
       const a = mix(x0, cx, collapse), b = mix(x0 + L * lineIn, cx, collapse);
@@ -195,10 +239,10 @@
     moments.forEach((m, i) => {
       const mx = x0 + L * m.f;
       const born = ease(seg(t, m.tHappen, m.tHappen + 0.35));
-      const gone = seg(t, 15.0, 15.9);
+      const gone = seg(t, 12.9, 13.3);
       if (born <= 0 || gone >= 1) return;
       const cap = ease(seg(t, m.tCapture, m.tCapture + 0.3));
-      const px = mix(mx, cx, ease(gone)), py = mix(lineY, filmCy, ease(gone));
+      const px = mx, py = lineY;
       dot(g, px, py, 10 * born, { color: cap > 0.5 ? C.rec : C.white, alpha: 1 - gone });
       if (cap > 0) corners(g, px, py, mix(64, 38, cap), mix(64, 38, cap), { len: 9, lw: 2.5, alpha: cap * (1 - gone) });
       const nextT = moments[i + 1] ? moments[i + 1].tHappen : 12.45;
@@ -211,31 +255,36 @@
     });
 
     // --- the couple ---
-    {
-      let px = cx, py = gy, a = 1, gap = mix(14, 3, ease(seg(t, 0.9, 3.1)));
+    { const e0 = 0;
+      let px = cx, py = gy, a = 0, gap = 12;
       if (t >= 5) {
-        const e = ease(seg(t, 5.0, 6.2)); px = mix(cx, x0, e); py = mix(gy, lineY, e); gap = mix(3, 12, e);
+        const e = ease(seg(t, 5.0, 6.2)); px = x0; py = lineY; a = seg(t, 5.6, 6.2);
         px = mix(px, x1, walkP(t));
       }
-      if (t >= 15) { const e = ease(seg(t, 15.0, 15.9)); px = mix(x1, cx, e); py = mix(lineY, filmCy, e); a = 1 - seg(t, 15.2, 15.9); }
-      if (t >= 40) { px = cx; py = gy; gap = 14; a = seg(t, 40.5, 41.2); }
+      if (t >= 12.9) a = 1 - seg(t, 12.9, 13.3);
+      void e0;
       if (a > 0) { const r = 13; dot(g, px - r - gap / 2, py, r, { alpha: a }); dot(g, px + r + gap / 2, py, r, { alpha: a }); }
     }
 
-    // --- S3: films ---
+    // --- S3: films (full-bleed shots come from the photo layer) ---
     if (t >= 15 && t < 22.9) {
-      const out = 1 - seg(t, 22.5, 22.85);
-      const toCard = ease(seg(t, 17.5, 18.5));
+      const win = [[15.0, 16.9], [16.9, 18.0], [18.0, 19.1], [19.1, 20.2]];
       TL.films.forEach((f, i) => {
-        const p = cardPos(i);
-        let x = p.x, y = p.y, w = cardW, h = cardH, a = seg(t, f.t, f.t + 0.5);
-        if (i === 0) { x = mix(cx, p.x, toCard); y = mix(filmCy, p.y, toCard); w = mix(filmW, cardW, toCard); h = mix(filmH, cardH, toCard); a = seg(t, f.t, f.t + 0.8); }
+        const la = fade(t, win[i][0] + 0.2, win[i][1] + 0.05, 0.3, 0.2);
+        if (la <= 0) return;
+        const ly = F.capY - 140 * fs, rise = (1 - ease(seg(t, win[i][0] + 0.2, win[i][0] + 0.6))) * 12;
+        text(g, f.name, cx, ly + rise, { font: SERIF, weight: 600, size: 58, alpha: la });
+        text(g, f.venue.toUpperCase(), cx, ly + 42 * fs + rise, { size: 18, track: 0.26, weight: 600, alpha: la * 0.9 });
+      });
+      const out = 1 - seg(t, 22.5, 22.85);
+      TL.films.forEach((f, i) => {
+        const p = cardPos(i), a = seg(t, 20.2 + i * 0.1, 20.6 + i * 0.1) * out;
         if (a <= 0) return;
-        cover(g, IMG[f.img], x, y, w, h, a * out);
-        const big = i === 0 ? 1 - toCard : 0;
-        const ny = y + h / 2 + mix(40, 58, big) * fs;
-        text(g, f.name, x, ny, { font: SERIF, weight: 600, size: mix(32, 50, big), alpha: a * out });
-        text(g, f.venue.toUpperCase(), x, ny + mix(30, 40, big) * fs, { size: mix(15, 18, big), track: 0.24, alpha: a * out * 0.8 });
+        const rise = (1 - ease(seg(t, 20.2 + i * 0.1, 20.8 + i * 0.1))) * 16;
+        cover(g, IMG[f.img], p.x, p.y + rise, cardW, cardH, a);
+        const ny = p.y + rise + cardH / 2 + 40 * fs;
+        text(g, f.name, p.x, ny, { font: SERIF, weight: 600, size: 32, alpha: a });
+        text(g, f.venue.toUpperCase(), p.x, ny + 30 * fs, { size: 15, track: 0.24, alpha: a * 0.8 });
       });
     }
 
@@ -294,14 +343,14 @@
     corners(g, bk.x, bk.y, bk.w, bk.h);
     {
       // viewfinder read-outs only while the bracket is a full frame (S1 open, S5 close)
-      const big = clamp((bk.w - 520) / 200) * (t < 5 ? 1 : seg(t, 40.8, 41.4));
+      const big = clamp((bk.w - 520) / 200) * (t < 5 ? 1 : t < 21 ? seg(t, 13.6, 14.0) * (1 - seg(t, 20.1, 20.4)) : seg(t, 40.8, 41.4));
       if (big > 0) {
         const l = bk.x - bk.w / 2, r = bk.x + bk.w / 2, tp = bk.y - bk.h / 2;
         dot(g, l + 34, tp + 30, 6, { color: C.rec, alpha: big });
         text(g, 'REC', l + 52, tp + 30, { size: 17, track: 0.24, align: 'left', base: 'middle', alpha: big, weight: 600 });
         text(g, timecode(t), r - 30, tp + 30, { size: 17, track: 0.14, align: 'right', base: 'middle', alpha: big });
-      } else if (t >= 5 && t < 15) {
-        dot(g, bk.x, bk.y, 5, { color: C.rec, alpha: seg(t, 6.0, 6.4) * (1 - seg(t, 15.0, 15.3)) });
+      } else if (t >= 5 && t < 13) {
+        dot(g, bk.x, bk.y, 5, { color: C.rec, alpha: seg(t, 6.0, 6.4) * (1 - seg(t, 12.6, 12.9)) });
       }
     }
 
@@ -329,15 +378,15 @@
     if (t >= 40.8) {
       const p = TL.payoff;
       const a = seg(t, 41.0, 41.6), rise = (1 - ease(seg(t, 41.0, 41.6))) * 18;
-      const ty = gy - (FMT === '9x16' ? 205 : 160) * fs;
-      const tsz = FMT === '9x16' ? 68 : 80;
-      p.tagline.forEach((ln, k) => text(g, ln, cx, ty + k * tsz * 1.1 * fs + rise, { font: SERIF, weight: 600, size: tsz, alpha: a }));
+      const ty = F.capY - 330 * fs;
+      const tsz = 76;
+      p.tagline.forEach((ln, k) => text(g, ln, cx, ty + k * 84 * fs + rise, { font: SERIF, weight: 600, size: tsz, alpha: a }));
       const ca = seg(t, p.ctaAt, p.ctaAt + 0.45), cr = (1 - ease(seg(t, p.ctaAt, p.ctaAt + 0.5))) * 14;
       if (ca > 0) {
-        const by = gy + (FMT === '9x16' ? 190 : 118) * fs + cr, bw = 330 * fs, bh = 74 * fs;
+        const by = F.capY - 150 * fs + cr, bw = 330 * fs, bh = 74 * fs;
         g.save(); g.globalAlpha = ca; g.fillStyle = C.white; g.fillRect(cx - bw / 2, by - bh / 2, bw, bh); g.restore();
         text(g, p.cta, cx, by + 1, { size: 19, track: 0.24, weight: 600, color: C.navy, base: 'middle', alpha: ca });
-        text(g, p.url, cx, by + bh / 2 + 52 * fs, { size: 26, track: 0.08, alpha: ca });
+        text(g, p.url, cx, by + bh / 2 + 44 * fs, { size: 26, track: 0.08, weight: 600, alpha: ca });
       }
     }
 
@@ -381,7 +430,7 @@
   window.ready = Promise.all([
     ...fonts.map((f) => f.load().then((ff) => document.fonts.add(ff))),
     loadImg('mark', '../brand/EB_Mark_White.svg'),
-    ...TL.films.map((f) => loadImg(f.img, '../screens/' + f.img)),
+    ...[...new Set([...TL.films.map((f) => f.img), ...TL.shots.map((s) => s.img)])].map((n) => loadImg(n, '../screens/' + n)),
   ]).then(() => { window.seek = seek; seek(0); return true; });
 
   // live preview: ?play=1

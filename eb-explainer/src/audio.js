@@ -9,7 +9,10 @@ window.renderAudio = async () => {
 
   const master = ac.createGain(); master.gain.value = 0.9;
   const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
-  master.connect(comp); comp.connect(ac.destination);
+  // Keep the bed out of the low end: a high-pass and a low-shelf cut so phone speakers hear the tune.
+  const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 120; hp.Q.value = 0.7;
+  const shelf = ac.createBiquadFilter(); shelf.type = 'lowshelf'; shelf.frequency.value = 300; shelf.gain.value = -8;
+  master.connect(hp); hp.connect(shelf); shelf.connect(comp); comp.connect(ac.destination);
   // gentle fade in/out
   master.gain.setValueAtTime(0, 0); master.gain.linearRampToValueAtTime(0.9, 0.4);
   master.gain.setValueAtTime(0.9, DUR - 1.6); master.gain.linearRampToValueAtTime(0, DUR - 0.05);
@@ -30,7 +33,7 @@ window.renderAudio = async () => {
       [0, 0.004].forEach((det, k) => {
         const o = ac.createOscillator(); o.type = k ? 'triangle' : 'sine'; o.frequency.value = hz(m) * (1 + det);
         const v = ac.createGain(); v.gain.setValueAtTime(0, t); v.gain.linearRampToValueAtTime(g / notes.length, t + 0.9); v.gain.setValueAtTime(g / notes.length, t + len - 0.6); v.gain.linearRampToValueAtTime(0, t + len + 0.5);
-        const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 1400;
+        const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 1100;
         const p = ac.createStereoPanner(); p.pan.value = (i % 2 ? 0.35 : -0.35) * (k ? 1 : -1);
         o.connect(fl); fl.connect(v); v.connect(p); p.connect(master); o.start(t); o.stop(t + len + 0.6);
       });
@@ -45,24 +48,34 @@ window.renderAudio = async () => {
   // Bed. S1 sits on an unresolved B minor (the worry); it resolves to D when the frame lets go at 5 s.
   const CH = { Bm: [47, 54, 59, 62], D: [50, 57, 62, 66], G: [43, 55, 59, 62], A: [45, 57, 61, 64], Em: [52, 55, 59, 64] };
   const prog = ['Bm', 'Bm', 'D', 'G', 'D', 'A', 'D', 'G', 'Bm', 'G', 'D', 'A', 'G', 'Em', 'A', 'A', 'D', 'D'];
-  prog.forEach((c, i) => pad(i * bar, bar, CH[c], i < 2 ? 0.2 : 0.26));
+  prog.forEach((c, i) => pad(i * bar, bar, CH[c].map((m) => m + 12), i < 2 ? 0.07 : 0.06));
   // soft pulse from the model onwards: root on every beat, fifth on the off-beats of the proof and turn
   for (let b = 8; b < 68; b++) {
     const t = b * beat, c = CH[prog[Math.floor(t / bar)]];
-    tone(t, hz(c[0]), { type: 'sine', a: 0.005, d: 0.32, g: b % 4 === 0 ? 0.2 : 0.11 });
+    tone(t, hz(c[0] + 12), { type: 'sine', a: 0.005, d: 0.3, g: b % 4 === 0 ? 0.08 : 0.045 });
     if (t >= 15 && t < 40) tone(t + beat / 2, hz(c[1] + 12), { type: 'triangle', a: 0.004, d: 0.18, g: 0.035, pan: b % 2 ? 0.4 : -0.4, lp: 2400 });
   }
 
+  // Arpeggio an octave up from the model onwards: the bed carries a tune, not just a drone.
+  for (let n = 16; n < 128; n++) {
+    const t = n * beat / 2; if (t >= 43.5) break;
+    const c = CH[prog[Math.floor(t / bar)]], pat = [1, 2, 3, 2];
+    const m = c[pat[n % 4]] + 12 + (c[pat[n % 4]] < 55 ? 12 : 0);
+    tone(t, hz(m), { type: 'triangle', a: 0.004, d: 0.42, g: (n % 8 === 0 ? 0.13 : 0.09) * (t >= 15 && t < 22.5 ? 1.25 : 1), pan: n % 2 ? 0.3 : -0.3, lp: 4200 });
+  }
+  // a soft bell on each bar from the proof onwards
+  for (let i = 6; i < 17; i++) tone(i * bar, hz(CH[prog[i]][3] + 24), { a: 0.005, d: 1.6, g: 0.035, pan: i % 2 ? 0.4 : -0.4 });
   const MOTIF = [78, 81, 86, 83];
   for (const c of TL.cues) {
     const t = c.t;
-    if (c.type === 'press') { tone(t, hz(35 - c.n), { a: 0.01, d: 0.5, g: 0.3 }); noise(t, 0.12, 300, 0.05); }
+    if (c.type === 'press') { tone(t, hz(47 - c.n), { a: 0.01, d: 0.5, g: 0.25 }); noise(t, 0.12, 300, 0.05); }
     if (c.type === 'release') { [62, 66, 69].forEach((m, i) => tone(t + i * 0.09, hz(m), { type: 'triangle', a: 0.02, d: 1.4, g: 0.08, lp: 3000, pan: (i - 1) * 0.3 })); }
     if (c.type === 'capture') { noise(t, 0.035, 5200, 0.07); tone(t + 0.01, hz(86 + [0, 2, 5][c.n]), { a: 0.003, d: 0.22, g: 0.07 }); }
     if (c.type === 'tick') { tone(t, hz(74 + [0, 2, 4, 7][c.n]), { type: 'triangle', a: 0.004, d: 0.3, g: 0.07, lp: 3500, pan: (c.n - 1.5) * 0.25 }); }
     if (c.type === 'step') { tone(t, hz(69 + [0, 2, 5, 9][c.n]), { type: 'triangle', a: 0.005, d: 0.5, g: 0.09, lp: 3200 }); noise(t, 0.03, 4200, 0.03); }
     if (c.type === 'widen') { tone(t, hz(62 + [0, 4, 7][c.n]), { type: 'triangle', a: 0.03, d: 0.9, g: 0.1, lp: 2600 }); tone(t, hz(74 + [0, 4, 7][c.n]), { a: 0.03, d: 0.7, g: 0.05 }); }
-    if (c.type === 'motif') MOTIF.forEach((m, i) => { const tt = t + i * beat / 2; tone(tt, hz(m), { type: 'triangle', a: 0.006, d: 1.1, g: 0.13 * c.gain, lp: 4200, pan: (i - 1.5) * 0.2 }); tone(tt, hz(m - 12), { a: 0.006, d: 0.9, g: 0.06 * c.gain }); });
+    if (c.type === 'motif') MOTIF.forEach((m, i) => { const tt = t + i * beat / 2; tone(tt, hz(m), { type: 'triangle', a: 0.006, d: 1.1, g: 0.2 * c.gain, lp: 5000, pan: (i - 1.5) * 0.2 }); tone(tt, hz(m - 12), { a: 0.006, d: 0.9, g: 0.06 * c.gain }); });
+    if (c.type === 'lift') { [74, 78, 81, 86].forEach((m, i) => tone(t + i * 0.06, hz(m), { type: 'triangle', a: 0.01, d: 1.4, g: 0.07, lp: 5000, pan: (i - 1.5) * 0.25 })); noise(t, 0.6, 6000, 0.02); }
     if (c.type === 'chime') [74, 81, 86].forEach((m, i) => tone(t + i * 0.07, hz(m), { a: 0.006, d: 1.8, g: 0.08, pan: (i - 1) * 0.3 }));
   }
 

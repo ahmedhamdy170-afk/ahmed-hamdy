@@ -1,6 +1,6 @@
 # EB Wedding Videography explainer (45 s)
 
-A short explainer for eb.wetframes.co: a wedding film does not have to mean being directed all day, here is what you get, and here is how to book.
+Version 2 (photo-led). A short explainer for eb.wetframes.co: a wedding film does not have to mean being directed all day, here is what you get, and here is how to book.
 
 ## Files
 
@@ -19,7 +19,11 @@ A short explainer for eb.wetframes.co: a wedding film does not have to mean bein
 
 Rebuild everything with `./build.sh`. Preview live by serving this folder and opening `src/film.html?fmt=16x9&play=1` (`fmt` is `16x9`, `9x16` or `1x1`; add `rm=1` for reduced motion).
 
-## What was tested
+## What changed in version 2
+
+Every scene now sits on a real photo from the site, the four films play full-bleed, the filmmaker's photo carries the core idea, the ending shows the real couple, and the music has a melody instead of a low drone. See the end of DECISIONS.md.
+
+## What was tested (version 1, re-checked items marked v2)
 
 - Same frame rendered twice in separate browser launches: byte-identical PNGs (16:9 at 13.37 s and 27.01 s, 9:16 at 13.37 s).
 - All four videos probed: 45.000 s, 2700 frames, 60 fps, yuv420p, with audio.

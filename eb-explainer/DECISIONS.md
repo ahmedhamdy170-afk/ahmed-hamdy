@@ -22,3 +22,14 @@ One line per call made without asking.
 - Vertical and square cuts are recomposed (stacked grid, larger type, staggered day labels), not cropped.
 - Reduced-motion cut: the same 21 settled frames joined by 0.4 s dissolves, captions on real time.
 - Design review and accessibility pass were done inline against the stills, not by a separate reviewer.
+
+## Version 2 (photo-led), 2026-11-12
+
+- Footage and voice-over were not available (YouTube blocked two films behind a sign-in check and the downloads were refused for the other two), so v2 works from the site's own stills only.
+- Every scene now sits on a real photo: Robert & Laura crowded and desaturated in the opening, the four films full-bleed in the proof, and the same couple wide and in full colour at the end.
+- The filmmaker's own photo from the site carries "The camera follows. It doesn't lead."
+- The two white dots no longer stand in for the couple while the photo shows them; they appear only on the day-line diagram.
+- Navy bands sit behind text and are computed per frame so every line keeps at least 0.72 navy cover.
+- The payoff text moved to the bottom so the couple's faces stay clear.
+- In 9:16 and 1:1 the full viewfinder is shorter and lower so its read-outs never touch the headline.
+- Music: pads up an octave and quieter, a high-pass at 120 Hz and a low-shelf cut, a new arpeggio and bar bells, a lift on the first real film. Energy below 350 Hz went from most of the mix to about 10%.

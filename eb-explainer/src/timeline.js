@@ -29,6 +29,20 @@ const TIMELINE = {
     { f: 1.0, text: 'The last song' },
   ],
 
+  // Photo layer under everything: [t, zoom, navy dim, saturation, blur px] keys per shot.
+  // fx/fy is the point of the photo held at frame centre. x = crossfade in, seconds.
+  shots: [
+    { t0: 0, img: 'film1.jpg', fx: 0.56, fy: 0.3, x: 0, keys: [[0, 1.7, 0.66, 0.3, 0], [4.9, 2.0, 0.68, 0.25, 0], [6.2, 1.08, 0.82, 0.6, 6], [12.9, 1.0, 0.82, 0.6, 6]] },
+    { t0: 12.9, img: 'ebrahim.jpg', fx: 0.5, fy: 0.42, x: 0.6, keys: [[12.9, 1.1, 0.3, 1, 0], [15, 1.02, 0.3, 1, 0]] },
+    { t0: 15.0, img: 'film1.jpg', fx: 0.56, fy: 0.36, x: 0.5, keys: [[15, 1.14, 0.08, 1, 0], [17, 1.04, 0.08, 1, 0]] },
+    { t0: 16.9, img: 'film2.jpg', fx: 0.5, fy: 0.45, x: 0.35, keys: [[16.9, 1.1, 0.08, 1, 0], [18.1, 1.03, 0.08, 1, 0]] },
+    { t0: 18.0, img: 'film3.jpg', fx: 0.52, fy: 0.42, x: 0.35, keys: [[18, 1.1, 0.08, 1, 0], [19.2, 1.03, 0.08, 1, 0]] },
+    { t0: 19.1, img: 'film4.jpg', fx: 0.5, fy: 0.38, x: 0.35, keys: [[19.1, 1.1, 0.08, 1, 0], [20.1, 1.05, 0.08, 1, 0], [20.9, 1.0, 0.86, 0.6, 8], [22.6, 1.0, 0.86, 0.6, 8]] },
+    { t0: 22.5, img: 'film3.jpg', fx: 0.5, fy: 0.45, x: 0.6, keys: [[22.5, 1.12, 0.85, 0.6, 8], [32.6, 1.0, 0.85, 0.6, 8]] },
+    { t0: 32.5, img: 'film2.jpg', fx: 0.5, fy: 0.45, x: 0.6, keys: [[32.5, 1.0, 0.86, 0.6, 8], [40.1, 1.1, 0.86, 0.6, 8]] },
+    { t0: 40.0, img: 'film1.jpg', fx: 0.56, fy: 0.34, x: 1.0, keys: [[40, 1.25, 0.12, 1, 0], [45, 1.06, 0.1, 1, 0]] },
+  ],
+
   // S3: real films shown on the site.
   films: [
     { img: 'film1.jpg', name: 'Robert & Laura', venue: 'Peckforton Castle', t: 15.9 },
@@ -97,7 +111,7 @@ const TIMELINE = {
     { t: 0.9, type: 'press', n: 0 }, { t: 1.7, type: 'press', n: 1 }, { t: 2.5, type: 'press', n: 2 },
     { t: 5.0, type: 'release' },
     { t: 9.31, type: 'capture', n: 0 }, { t: 10.49, type: 'capture', n: 1 }, { t: 12.25, type: 'capture', n: 2 },
-    { t: 12.6, type: 'motif', gain: 0.8 },
+    { t: 12.6, type: 'motif', gain: 0.8 }, { t: 15.0, type: 'lift' },
     { t: 15.9, type: 'tick', n: 0 }, { t: 18.1, type: 'tick', n: 1 }, { t: 18.6, type: 'tick', n: 2 }, { t: 19.1, type: 'tick', n: 3 },
     { t: 22.6, type: 'step', n: 0 }, { t: 25.1, type: 'step', n: 1 }, { t: 27.6, type: 'step', n: 2 }, { t: 30.1, type: 'step', n: 3 },
     { t: 32.6, type: 'widen', n: 0 }, { t: 35.1, type: 'widen', n: 1 }, { t: 37.6, type: 'widen', n: 2 },
@@ -106,6 +120,6 @@ const TIMELINE = {
   ],
 
   // Reduced-motion cut: the same sequence of ideas as settled stills, each [switch time, settled time shown], with 0.3 s dissolves.
-  rmCuts: [[0, 0.85], [0.9, 1.65], [1.7, 2.45], [2.5, 4.5], [5.0, 7.1], [7.5, 9.25], [9.3, 10.45], [10.5, 12.1], [12.5, 14.5], [15.0, 17.4], [17.5, 19.6], [20.0, 22.0], [22.5, 24.9], [25.0, 27.4], [27.5, 29.9], [30.0, 32.0], [32.5, 34.9], [35.0, 37.4], [37.5, 39.5], [40.0, 42.4], [42.5, 44.95]],
+  rmCuts: [[0, 0.85], [0.9, 1.65], [1.7, 2.45], [2.5, 4.5], [5.0, 7.1], [7.5, 9.25], [9.3, 10.45], [10.5, 12.1], [12.5, 14.5], [15.0, 16.4], [17.5, 18.6], [20.0, 22.0], [22.5, 24.9], [25.0, 27.4], [27.5, 29.9], [30.0, 32.0], [32.5, 34.9], [35.0, 37.4], [37.5, 39.5], [40.0, 42.4], [42.5, 44.95]],
 };
 if (typeof module !== 'undefined') module.exports = TIMELINE;
